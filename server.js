@@ -305,6 +305,12 @@ bot.on('text', async (ctx) => {
 
 const PORT = process.env.PORT || 3000;
 
+
+// API dùng để giữ server luôn thức
+app.get('/ping', (req, res) => {
+  res.status(200).send('Server vẫn đang hoạt động!');
+});
+
 // API nhận Webhook từ payOS
 app.post('/payos-webhook', async (req, res) => {
   try {
