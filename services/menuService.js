@@ -1,35 +1,67 @@
 // services/menuService.js
 const Menu = require('../models/Menu');
 
-// Hàm tìm kiếm menu dựa trên từ khóa
+// TẠO BỘ NHỚ ĐỆM (CACHE)
+let cachedFullMenu = null;
+let lastCacheTime = 0;
+const CACHE_TTL = 1000 * 60 * 60; // Thời gian sống của Cache: 1 tiếng (tính bằng mili-giây)
+
+function formatGroupedMenu(items) {
+  // 1. Gom nhóm các món theo 'category'
+  const grouped = items.reduce((acc, item) => {
+    if (!acc[item.category]) {
+      acc[item.category] = []; // Nếu chưa có nhóm này, tạo mảng trống
+    }
+    acc[item.category].push(item);
+    return acc;
+  }, {});
+
+  // 2. Định dạng lại thành chuỗi Text
+  let result = [];
+  for (const category in grouped) {
+    result.push(`\n**${category}:**`); // Tiêu đề nhóm (in đậm)
+    grouped[category].forEach(item => {
+      result.push(`- ${item.name}: Size M ${item.price_m.toLocaleString('vi-VN')}đ, Size L ${item.price_l.toLocaleString('vi-VN')}đ`);
+    });
+  }
+  
+  return result.join('\n').trim();
+}
+
 async function searchMenu(keyword) {
   try {
     let items = [];
 
-    // Nếu AI truyền vào từ khóa bị rỗng, lấy toàn bộ menu
+    // NẾU KHÁCH TÌM TOÀN BỘ MENU
     if (!keyword || keyword.trim() === '') {
+      if (cachedFullMenu && (Date.now() - lastCacheTime < CACHE_TTL)) {
+          console.log("⚡ Lấy Menu từ Cache RAM");
+          return cachedFullMenu;
+      }
+
+      console.log("🐢 Lấy Menu từ MongoDB");
       items = await Menu.find({ available: true });
-    } else {
-      // Tách từ khóa thành mảng các từ (Vd: "matcha đá xay" -> ["matcha", "đá", "xay"])
+      
+      // SỬ DỤNG HÀM GOM NHÓM VÀ LƯU CACHE
+      cachedFullMenu = formatGroupedMenu(items);
+      lastCacheTime = Date.now();
+      
+      return cachedFullMenu;
+    } 
+    
+    // NẾU KHÁCH TÌM MÓN CỤ THỂ
+    else {
       const words = keyword.trim().split(/\s+/);
-      
-      // Tạo điều kiện tìm kiếm: Tên món ăn phải chứa TẤT CẢ các từ trên (không phân biệt thứ tự)
       const regexQueries = words.map(word => ({ name: { $regex: word, $options: 'i' } }));
-      
-      // Tìm kiếm trong DB bằng toán tử $and
       items = await Menu.find({ $and: regexQueries, available: true });
       
-      // Cơ chế Fallback: Nếu vẫn không tìm ra món cụ thể, lấy TOÀN BỘ menu cho AI tự đọc
       if (items.length === 0) {
-        console.log(`Không tìm thấy chính xác "${keyword}", đang gửi toàn bộ menu cho AI tự lọc...`);
-        items = await Menu.find({ available: true });
+        return "Dạ quán không có món này ạ."; 
       }
+
+      // SỬ DỤNG HÀM GOM NHÓM CHO KẾT QUẢ TÌM KIẾM
+      return formatGroupedMenu(items);
     }
-    
-    // Định dạng lại kết quả để AI dễ đọc
-    return items.map(item => 
-      `- ${item.category} | ${item.name}: Size M ${item.price_m.toLocaleString('vi-VN')}đ, Size L ${item.price_l.toLocaleString('vi-VN')}đ`
-    ).join('\n');
     
   } catch (error) {
     console.error("Lỗi khi tìm menu:", error);

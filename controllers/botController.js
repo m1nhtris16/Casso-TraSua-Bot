@@ -14,7 +14,15 @@ const setupBot = () => {
     const userMessage = ctx.message.text;
     try {
         await ctx.sendChatAction('typing');
-
+        // BYPASS AI ĐỂ TRẢ LỜI MENU SIÊU NHANH ---
+        const quickText = userMessage.toLowerCase().trim();
+        if (["menu", "thực đơn", "cho xem menu", "gửi menu", "xem menu"].includes(quickText)) {
+            // Lấy menu trực tiếp từ Service (sẽ được lấy từ Cache RAM cực nhanh)
+            const menuString = await searchMenu(""); 
+            
+            // Gửi thẳng cho khách, KHÔNG gọi OpenAI để tiết kiệm tiền và thời gian
+            return ctx.reply(`Dạ, quán gửi anh/chị thực đơn ạ:\n\n${menuString}\n\nAnh/chị muốn dùng món gì cứ nhắn em nhé!`);
+        }
         // 1. Nếu khách hàng này chưa từng chat, tạo một bộ nhớ mới cho họ
         if (!userSessions[chatId]) {
             userSessions[chatId] = [
