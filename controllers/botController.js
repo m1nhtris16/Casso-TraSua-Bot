@@ -179,10 +179,7 @@ const setupBot = () => {
 
             // Lưu kết quả của tool vào lịch sử trò chuyện
             userSessions[chatId].push({
-        // const secondResponse = await openai.chat.completions.create({
-        //     model: "gpt-4o-mini",
-        //     messages: userSessions[chatId],
-        // });
+            tool_call_id: toolCall.id,
             role: "tool",
             name: toolCall.function.name,
             content: functionResult,
