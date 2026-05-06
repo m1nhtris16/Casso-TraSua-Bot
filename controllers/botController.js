@@ -7,6 +7,8 @@ const { createPaymentLink } = require('../services/paymentService');
 
 const setupBot = () => {
     bot.start((ctx) => {
+        const chatId = ctx.chat.id;
+        delete userSessions[chatId];
         ctx.reply('Chào anh/chị, anh/chị muốn đặt món gì cứ nhắn vào đây để quán lên đơn nhé, nếu chưa chọn được món thì nhắn quán gửi menu để cho anh/chị lựa nhé! 🧋');
     });
     bot.on('text', async (ctx) => {
@@ -14,6 +16,9 @@ const setupBot = () => {
     const userMessage = ctx.message.text;
     try {
         await ctx.sendChatAction('typing');
+        if (userMessage.trim().startsWith('/')) {
+            return;
+        }
         // BYPASS AI ĐỂ TRẢ LỜI MENU SIÊU NHANH ---
         const quickText = userMessage.toLowerCase().trim();
         if (["menu", "thực đơn", "cho xem menu", "gửi menu", "xem menu"].includes(quickText)) {
