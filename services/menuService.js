@@ -1,10 +1,59 @@
 // services/menuService.js
 const Menu = require('../models/Menu');
 
+const TOKEN_ALIASES = {
+  cf: ['ca', 'phe', 'cafe', 'coffee'],
+  cafe: ['ca', 'phe', 'cf', 'coffee'],
+  coffee: ['ca', 'phe', 'cf', 'cafe'],
+  ts: ['tra', 'sua'],
+  socola: ['socola', 'soco', 'chocolate'],
+  soco: ['socola', 'chocolate'],
+  den: ['den'],
+  sua: ['sua'],
+};
+
 // TẠO BỘ NHỚ ĐỆM (CACHE)
 let cachedFullMenu = null;
 let lastCacheTime = 0;
 const CACHE_TTL = 1000 * 60 * 60; // Thời gian sống của Cache: 1 tiếng (tính bằng mili-giây)
+
+function normalizeText(text = '') {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildExpandedTokenGroups(keyword = '') {
+  const tokens = normalizeText(keyword).split(' ').filter(Boolean);
+  return tokens.map((token) => {
+    const aliases = TOKEN_ALIASES[token] || [];
+    return Array.from(new Set([token, ...aliases]));
+  });
+}
+
+function isMenuItemMatched(itemName, tokenGroups) {
+  const normalizedName = normalizeText(itemName);
+  return tokenGroups.every((group) =>
+    group.some((term) => normalizedName.includes(term))
+  );
+}
+
+function findBestMenuItem(queryName, menuItems) {
+  const normalizedQuery = normalizeText(queryName);
+  const tokenGroups = buildExpandedTokenGroups(queryName);
+
+  let exact = menuItems.find((item) => normalizeText(item.name) === normalizedQuery);
+  if (exact) return exact;
+
+  exact = menuItems.find((item) => isMenuItemMatched(item.name, tokenGroups));
+  return exact || null;
+}
 
 function formatGroupedMenu(items) {
   // 1. Gom nhóm các món theo 'category'
@@ -51,9 +100,9 @@ async function searchMenu(keyword) {
     
     // NẾU KHÁCH TÌM MÓN CỤ THỂ
     else {
-      const words = keyword.trim().split(/\s+/);
-      const regexQueries = words.map(word => ({ name: { $regex: word, $options: 'i' } }));
-      items = await Menu.find({ $and: regexQueries, available: true });
+      const tokenGroups = buildExpandedTokenGroups(keyword);
+      const allItems = await Menu.find({ available: true });
+      items = allItems.filter((item) => isMenuItemMatched(item.name, tokenGroups));
       
       if (items.length === 0) {
         return "Dạ quán không có món này ạ."; 
@@ -74,10 +123,11 @@ async function calculateTotal(orderItems) {
   try {
     let totalAmount = 0;
     let billDetails = ["🧾 CHI TIẾT ĐƠN HÀNG:"];
+    const availableItems = await Menu.find({ available: true });
 
     for (let item of orderItems) {
-      // Tìm món ăn trong DB để lấy giá gốc, tránh việc AI tự bịa giá
-      const dbItem = await Menu.findOne({ name: { $regex: item.name, $options: 'i' }, available: true });
+      // Tìm món ăn theo tên đã chuẩn hóa để nhận cả dạng viết tắt/không dấu
+      const dbItem = findBestMenuItem(item.name, availableItems);
       
       if (dbItem) {
         // Xác định giá theo size (mặc định size M nếu không rõ)
