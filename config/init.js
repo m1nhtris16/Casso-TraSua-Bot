@@ -5,8 +5,15 @@ const { PayOS } = require('@payos/node');
 // Khởi tạo các dịch vụ
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+// ========== OPENAI (CẠO) ==========
+// const openai = new OpenAI({
+//   apiKey: process.env.OPENAI_API_KEY,
+// });
+
+// ========== DEEPSEEK (MỚI) ==========
+const deepseek = new OpenAI({
+  apiKey: process.env.DEEPSEEK_API_KEY,
+  baseURL: 'https://api.deepseek.com',
 });
 
 const payos = new PayOS({
@@ -15,4 +22,4 @@ const payos = new PayOS({
   checksumKey: process.env.PAYOS_CHECKSUM_KEY
 });
 
-module.exports = { bot, openai, payos };
+module.exports = { bot, deepseek, payos };

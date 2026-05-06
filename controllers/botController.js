@@ -1,4 +1,6 @@
-const { bot, openai } = require('../config/init');
+
+// const { bot, openai } = require('../config/init');
+const { bot, deepseek } = require('../config/init');
 const { userSessions } = require('../utils/store');
 const { searchMenu, calculateTotal } = require('../services/menuService');
 const { createPaymentLink } = require('../services/paymentService');
@@ -7,8 +9,6 @@ const setupBot = () => {
     bot.start((ctx) => {
         ctx.reply('Chào anh/chị, anh/chị muốn đặt món gì cứ nhắn vào đây để quán lên đơn nhé, nếu chưa chọn được món thì nhắn quán gửi menu để cho anh/chị lựa nhé! 🧋');
     });
-
-    // Xử lý tin nhắn text bằng OpenAI
     bot.on('text', async (ctx) => {
     const chatId = ctx.chat.id;
     const userMessage = ctx.message.text;
@@ -136,9 +136,18 @@ const setupBot = () => {
             }
         }
         ];
+
+
+        // const response = await openai.chat.completions.create({
+        // model: "gpt-4o-mini",
+        // messages: userSessions[chatId],
+        // tools: tools,
+        // tool_choice: "auto",
+        // });
+
         // 3. Gửi TOÀN BỘ lịch sử chat cho AI
-        const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        const response = await deepseek.chat.completions.create({
+        model: "deepseek-chat",
         messages: userSessions[chatId],
         tools: tools,
         tool_choice: "auto",
@@ -170,7 +179,10 @@ const setupBot = () => {
 
             // Lưu kết quả của tool vào lịch sử trò chuyện
             userSessions[chatId].push({
-            tool_call_id: toolCall.id,
+        // const secondResponse = await openai.chat.completions.create({
+        //     model: "gpt-4o-mini",
+        //     messages: userSessions[chatId],
+        // });
             role: "tool",
             name: toolCall.function.name,
             content: functionResult,
@@ -178,8 +190,8 @@ const setupBot = () => {
         }
 
         // Lần gọi AI thứ 2: Tổng hợp dữ liệu
-        const secondResponse = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+        const secondResponse = await deepseek.chat.completions.create({
+            model: "deepseek-chat",
             messages: userSessions[chatId],
         });
 
