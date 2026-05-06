@@ -1,7 +1,7 @@
 
 // const { bot, openai } = require('../config/init');
 const { bot, deepseek } = require('../config/init');
-const { userSessions } = require('../utils/store');
+const { userSessions, processingChats } = require('../utils/store');
 const { searchMenu, calculateTotal } = require('../services/menuService');
 const { createPaymentLink } = require('../services/paymentService');
 
@@ -9,11 +9,18 @@ const setupBot = () => {
     bot.start((ctx) => {
         const chatId = ctx.chat.id;
         delete userSessions[chatId];
+        processingChats.delete(chatId);
         ctx.reply('Chào anh/chị, anh/chị muốn đặt món gì cứ nhắn vào đây để quán lên đơn nhé, nếu chưa chọn được món thì nhắn quán gửi menu để cho anh/chị lựa nhé! 🧋');
     });
     bot.on('text', async (ctx) => {
     const chatId = ctx.chat.id;
     const userMessage = ctx.message.text;
+
+    if (processingChats.has(chatId)) {
+        return;
+    }
+    processingChats.add(chatId);
+
     try {
         await ctx.sendChatAction('typing');
         if (userMessage.trim().startsWith('/')) {
@@ -153,6 +160,7 @@ const setupBot = () => {
         // 3. Gửi TOÀN BỘ lịch sử chat cho AI
         const response = await deepseek.chat.completions.create({
         model: "deepseek-chat",
+        temperature: 0.2,
         messages: userSessions[chatId],
         tools: tools,
         tool_choice: "auto",
@@ -194,6 +202,7 @@ const setupBot = () => {
         // Lần gọi AI thứ 2: Tổng hợp dữ liệu
         const secondResponse = await deepseek.chat.completions.create({
             model: "deepseek-chat",
+            temperature: 0.2,
             messages: userSessions[chatId],
         });
 
@@ -213,6 +222,8 @@ const setupBot = () => {
     } catch (error) {
         console.error("❌ Lỗi hệ thống:", error);
         await ctx.reply("Hệ thống đang nghẽn xíu, anh/chị chờ trong giây lát rồi nhắn lại nha! 😢");
+    } finally {
+        processingChats.delete(chatId);
     }
     });
 };
